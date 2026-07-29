@@ -1,0 +1,262 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Matrix Operations in Image Processing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #0f172a;
+        }
+
+        .controls-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 600px;
+            justify-content: space-between;
+        }
+
+        label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+        }
+
+        .val-display {
+            width: 45px;
+            font-family: monospace;
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: #2563eb;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        .canvas-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .canvas-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        canvas {
+            border: 1px solid #cbd5e1;
+            display: block;
+            margin-top: 10px;
+        }
+
+        .formula-box {
+            background: #0f172a;
+            color: #38bdf8;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            text-align: left;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Basic Matrix Operations on Image Pixels</h1>
+    <p>Adjust parameters to observe how simple scalar arithmetic and matrix channel swapping transform image data.</p>
+
+    <div class="controls-container">
+        <!-- Scalar Addition (Brightness) -->
+        <div class="control-group">
+            <label for="addSlider">Scalar Addition (Brightness $k_a$):</label>
+            <input type="range" id="addSlider" min="-100" max="100" value="0" oninput="updateImage()">
+            <span class="val-display" id="addVal">0</span>
+        </div>
+
+        <!-- Scalar Multiplication (Contrast) -->
+        <div class="control-group">
+            <label for="mulSlider">Scalar Multiplication (Contrast $k_m$):</label>
+            <input type="range" id="mulSlider" min="0.1" max="3" step="0.1" value="1.0" oninput="updateImage()">
+            <span class="val-display" id="mulVal">1.0</span>
+        </div>
+
+        <!-- Color Channel Swapping -->
+        <div class="button-group">
+            <button onclick="setColorMode('normal')">RGB Normal</button>
+            <button onclick="setColorMode('red')">Isolate Red Channel</button>
+            <button onclick="setColorMode('green')">Isolate Green Channel</button>
+            <button onclick="setColorMode('blue')">Isolate Blue Channel</button>
+            <button onclick="setColorMode('swap_rb')">Swap Red & Blue Matrix</button>
+            <button onclick="resetAll()" style="background-color: #64748b;">Reset All</button>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <div class="canvas-card">
+            <h3>Original Image Matrix</h3>
+            <canvas id="origCanvas" width="300" height="300"></canvas>
+        </div>
+        <div class="canvas-card">
+            <h3>Transformed Image Matrix</h3>
+            <canvas id="outCanvas" width="300" height="300"></canvas>
+        </div>
+    </div>
+
+    <div class="formula-box" id="formulaDisplay">
+        Pixel Matrix Equation: [R', G', B'] = [R, G, B] * 1.0 + 0
+    </div>
+
+    <script>
+        const origCanvas = document.getElementById('origCanvas');
+        const origCtx = origCanvas.getContext('2d');
+        const outCanvas = document.getElementById('outCanvas');
+        const outCtx = outCanvas.getContext('2d');
+
+        let colorMode = 'normal';
+
+        function generateGraphic() {
+            // Background
+            origCtx.fillStyle = '#1e293b';
+            origCtx.fillRect(0, 0, 300, 300);
+
+            // Red circle
+            origCtx.fillStyle = '#ef4444';
+            origCtx.beginPath();
+            origCtx.arc(100, 120, 60, 0, Math.PI * 2);
+            origCtx.fill();
+
+            // Green square
+            origCtx.fillStyle = '#22c55e';
+            origCtx.fillRect(140, 80, 100, 100);
+
+            // Blue circle
+            origCtx.fillStyle = '#3b82f6';
+            origCtx.beginPath();
+            origCtx.arc(150, 200, 50, 0, Math.PI * 2);
+            origCtx.fill();
+
+            // Text
+            origCtx.fillStyle = '#ffffff';
+            origCtx.font = 'bold 24px Arial';
+            origCtx.fillText('PIXELS', 105, 160);
+
+            updateImage();
+        }
+
+        function setColorMode(mode) {
+            colorMode = mode;
+            updateImage();
+        }
+
+        function resetAll() {
+            document.getElementById('addSlider').value = 0;
+            document.getElementById('mulSlider').value = 1.0;
+            colorMode = 'normal';
+            updateImage();
+        }
+
+        function updateImage() {
+            const addVal = parseInt(document.getElementById('addSlider').value);
+            const mulVal = parseFloat(document.getElementById('mulSlider').value);
+
+            document.getElementById('addVal').innerText = addVal;
+            document.getElementById('mulVal').innerText = mulVal.toFixed(1);
+
+            const imgData = origCtx.getImageData(0, 0, 300, 300);
+            const pixels = imgData.data;
+
+            const outData = outCtx.createImageData(300, 300);
+            const outPixels = outData.data;
+
+            // Loop over each pixel in the 2D Pixel Matrix
+            for (let i = 0; i < pixels.length; i += 4) {
+                let r = pixels[i];
+                let g = pixels[i + 1];
+                let b = pixels[i + 2];
+
+                // 1. Color Channel Matrix Transformations
+                if (colorMode === 'red') {
+                    g = 0; b = 0;
+                } else if (colorMode === 'green') {
+                    r = 0; b = 0;
+                } else if (colorMode === 'blue') {
+                    r = 0; g = 0;
+                } else if (colorMode === 'swap_rb') {
+                    let temp = r;
+                    r = b;
+                    b = temp;
+                }
+
+                // 2. Scalar Multiplication (Contrast scaling) & 3. Scalar Addition (Brightness offset)
+                let r_new = r * mulVal + addVal;
+                let g_new = g * mulVal + addVal;
+                let b_new = b * mulVal + addVal;
+
+                // Clamp pixel matrix values within byte limits [0, 255]
+                outPixels[i]     = Math.min(255, Math.max(0, r_new));
+                outPixels[i + 1] = Math.min(255, Math.max(0, g_new));
+                outPixels[i + 2] = Math.min(255, Math.max(0, b_new));
+                outPixels[i + 3] = 255; // Alpha
+            }
+
+            outCtx.putImageData(outData, 0, 0);
+
+            // Display linear equation equivalent
+            document.getElementById('formulaDisplay').innerText = 
+                `Active Transformation Matrix Equation:\n` +
+                `[R', G', B'] = ([R, G, B] × ${mulVal.toFixed(1)}) + ${addVal}  (Channel Mode: ${colorMode.toUpperCase()})`;
+        }
+
+        window.onload = generateGraphic;
+    </script>
+</body>
+</html>
